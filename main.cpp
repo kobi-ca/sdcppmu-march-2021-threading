@@ -54,6 +54,39 @@ namespace {
         }
     }
 
+    void join_a_detached_thread() {
+        std::thread t {[] { std::clog << "going to join a detached thread\n"; }};
+        t.detach();
+        t.join(); // will abort
+    }
+
+    void using_reference_as_comm_method() {
+        auto data = std::optional<std::string>{std::nullopt};
+        // producer thread
+        auto t = std::thread([&] {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(500ms);
+            data = "42";
+        });
+        t.join();
+        // consumer expression
+        std::clog << *data << '\n';
+    }
+
+    void producer_consumer() {
+        auto promise = std::promise<std::string>{};
+        auto future = promise.get_future();
+        // producer thread
+        auto t = std::thread([](auto promise) {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(500ms);
+            promise.set_value("42");
+        }, std::move(promise));
+        // consumer expression
+        std::clog << future.get() << '\n';
+        t.join();
+    }
+
     struct Foo final {
         int a_{};
     };
@@ -100,10 +133,13 @@ int main() {
     auto fut = std::async(f, f4);
     std::clog << fmt::format("async future got {}\n", fut.get());
 
-    //do_race_condition();
-    //home_alone();
-    //let_me_handle_your_error();
-    packaged_task_will_throw();
+//    do_race_condition();
+//    home_alone();
+//    let_me_handle_your_error();
+//    packaged_task_will_throw();
+//    join_a_detached_thread();
+    using_reference_as_comm_method();
+    producer_consumer();
 
     return 0;
 }
