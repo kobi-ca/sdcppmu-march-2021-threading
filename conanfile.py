@@ -1,8 +1,8 @@
 from conans import ConanFile, CMake, tools
 
 
-class VowelsAlgoMeetupConan(ConanFile):
-    name = "3rd-from-end-vowels-algo-meetup"
+class SdCppMuMarchThreadConcurrency(ConanFile):
+    name = "sdcppmu-march-thread-concurrency"
     version = "1.0"
     license = "<Put the package license here>"
     author = "<Put your name here> <And your email here>"

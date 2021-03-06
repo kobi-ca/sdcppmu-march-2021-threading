@@ -4,9 +4,62 @@
 #include <functional>
 #include "fmt/format.h"
 
-struct Foo final {
-   int a_{};
-};
+namespace {
+
+    void home_alone() {
+        std::string s{"stack, please dont leave me behind :("};
+        using namespace std::chrono_literals;
+        std::thread t ([&s] { std::this_thread::sleep_for(3s); s+= "!"; std::clog << s << '\n';});
+        t.detach(); // ouch... s is left behind
+    }
+
+    void do_race_condition() {
+        std::string race_me{"hello world"};
+        std::thread t1([&race_me] { race_me = "goodbye world"; });
+        std::thread t2([&race_me] { race_me += "!"; });
+        t1.join();
+        t2.join();
+        std::clog << fmt::format("{}\n", race_me);
+        // you'll get all kinds of combinations including:
+        // "goodbye worl"
+    }
+
+    std::exception_ptr ep = nullptr;
+    void let_me_handle_your_error(){
+        std::thread([] {
+            try {
+                throw std::runtime_error("error");
+            } catch (...) {
+                ep = std::current_exception();
+            }
+        }).join();
+        if (ep) {
+            try {
+                std::rethrow_exception(ep);
+            } catch(std::runtime_error& e) {
+                std::cout << e.what() << "\n";
+            }
+        }
+    }
+
+    void packaged_task_will_throw() {
+        auto pt = std::packaged_task<void()>([]{ throw std::runtime_error("Error!"); });
+        auto f = pt.get_future();
+        auto t = std::thread(std::move(pt));
+        t.join();
+        try {
+            f.get();
+        } catch (const std::runtime_error& ex) {
+            std::clog << fmt::format("packaged_task_will_throw {}\n", ex.what());
+        }
+    }
+
+    struct Foo final {
+        int a_{};
+    };
+
+} // namespace anonymous
+
 
 int main() {
     std::thread t1([] {});
@@ -20,11 +73,14 @@ int main() {
     t3.join();
 
     Foo f2{7};
-    std::thread t4([] (const Foo& f) { std::clog << fmt::format("in t4 f.a_ {}\n", f.a_); }, f2);
+    std::thread t4([](const Foo &f) { std::clog << fmt::format("in t4 f.a_ {}\n", f.a_); }, f2);
     t4.join();
 
     Foo f3{7};
-    const auto func = [] (Foo& f) { f.a_ = 42; std::clog << fmt::format("in t5 f.a_ {}\n", f.a_); };
+    const auto func = [](Foo &f) {
+        f.a_ = 42;
+        std::clog << fmt::format("in t5 f.a_ {}\n", f.a_);
+    };
     std::thread t5(func, std::ref(f3)); // must to have this cref since it is passed by value
     // https://stackoverflow.com/questions/62289941/pass-const-reference-to-thread
     // https://stackoverflow.com/questions/34469490/passing-non-const-reference-to-a-thread
@@ -32,13 +88,22 @@ int main() {
     std::clog << fmt::format("after t5 f.a_ is {}\n", f3.a_);
 
     // packaged_task
-    const auto f = [](const Foo& foo) { return foo.a_; };
-    std::packaged_task<int (const Foo&)> task(f);
+    const auto f = [](const Foo &foo) { return foo.a_; };
+    std::packaged_task<int(const Foo &)> task(f);
     std::future<int> result = task.get_future();
     Foo f4{f3};
     std::thread t6(std::move(task), f4); // need to move it
     t6.join();
     std::clog << fmt::format("future got {}\n", result.get());
+
+    // async
+    auto fut = std::async(f, f4);
+    std::clog << fmt::format("async future got {}\n", fut.get());
+
+    //do_race_condition();
+    //home_alone();
+    //let_me_handle_your_error();
+    packaged_task_will_throw();
 
     return 0;
 }
