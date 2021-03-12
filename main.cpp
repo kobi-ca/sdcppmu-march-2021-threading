@@ -87,6 +87,27 @@ namespace {
         t.join();
     }
 
+    // repeat after me, I shall not use volatile as if it was atomic
+    volatile bool done = false;
+
+    // this is UB...
+    void using_volatile_as_bool() {
+        std::thread t1([] {
+            while(!done) {
+                using namespace std::chrono_literals;
+                std::this_thread::sleep_for(1s);
+            }
+        });
+
+        std::thread t2([] {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(2s);
+            done = true;
+        });
+        t1.join(); t2.join();
+        std::clog << "finished using_volatile_as_bool\n";
+    }
+
     struct Foo final {
         int a_{};
     };
@@ -138,8 +159,9 @@ int main() {
 //    let_me_handle_your_error();
 //    packaged_task_will_throw();
 //    join_a_detached_thread();
-    using_reference_as_comm_method();
-    producer_consumer();
+//    using_reference_as_comm_method();
+//    producer_consumer();
+    using_volatile_as_bool();
 
     return 0;
 }
