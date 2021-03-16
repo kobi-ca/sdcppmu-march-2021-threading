@@ -117,7 +117,7 @@ namespace {
 
 int main() {
     std::thread t1([] {});
-    t1.join(); // must this one
+    t1.join(); // must have this one
 
     std::thread t2([] { std::clog << fmt::format("in t2\n"); });
     t2.detach(); // detached t2, no need to call t2.join();
@@ -142,7 +142,7 @@ int main() {
     std::clog << fmt::format("after t5 f.a_ is {}\n", f3.a_);
 
     // packaged_task
-    const auto f = [](const Foo &foo) { return foo.a_; };
+    const auto f = [](const Foo &foo) { return foo.a_ * 2; };
     std::packaged_task<int(const Foo &)> task(f);
     std::future<int> result = task.get_future();
     Foo f4{f3};
